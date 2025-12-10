@@ -1,0 +1,22 @@
+{
+  "name": "scrapedatbits",
+  "version": "1.0.0",
+  "description": "A minimalist site URL scraper with a stunning dark UI and API support.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [
+    "scraper",
+    "nodejs",
+    "express",
+    "axios",
+    "minimalist"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.7.0",
+    "express": "^4.19.0"
+  }
+}
