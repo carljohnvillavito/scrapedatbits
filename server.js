@@ -20,7 +20,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 class ScraperEngine {
     constructor() {
         // Add your proxies here if you have them. Format: "http://user:pass@ip:port"
-        this.proxies = [proxy.geonode.io:9000:geonode_ClRGNNvaJ5-type-residential:efacdaf9-3e64-4f8a-9004-368c7a51ad74]; 
+        this.proxies = [https://proxy.geonode.io:9000:geonode_ClRGNNvaJ5-type-residential:efacdaf9-3e64-4f8a-9004-368c7a51ad74]; 
     }
 
     async randomSleep(min = 1000, max = 3000) {
