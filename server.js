@@ -7,7 +7,6 @@ const UserAgent = require('user-agents');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 
 // --- ENVIRONMENT DETECTION ---
@@ -15,22 +14,16 @@ const IS_VERCEL = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME;
 
 class ScraperEngine {
     constructor() {
-        // ⚠️ CRITICAL FIX: The previous proxy caused the 407 Error.
-        // Left empty by default. Only add a proxy if you have a PAID, WORKING one.
-        this.proxies = [
-            // 'http://user:pass@host:port' 
-        ];
+        // Leave empty unless you have a paid proxy
+        this.proxies = [];
     }
 
     getProxyConfig() {
         if (this.proxies.length === 0) return null;
         const rawProxy = this.proxies[Math.floor(Math.random() * this.proxies.length)];
         
-        // Handle standard format http://user:pass@host:port
-        // or the specific format you used before
-        if (rawProxy.includes('@')) {
-            // Standard URL format parsing
-            try {
+        try {
+            if (rawProxy.includes('@')) {
                 const url = new URL(rawProxy);
                 return {
                     host: url.hostname,
@@ -38,19 +31,18 @@ class ScraperEngine {
                     auth: { username: url.username, password: url.password },
                     serverString: `${url.hostname}:${url.port}`
                 };
-            } catch (e) { return null; }
-        } else {
-            // Fallback for colon separated format
-            const parts = rawProxy.split(':');
-            if (parts.length === 4) {
-                return {
-                    host: parts[0],
-                    port: parseInt(parts[1]),
-                    auth: { username: parts[2], password: parts[3] },
-                    serverString: `${parts[0]}:${parts[1]}`
-                };
+            } else {
+                const parts = rawProxy.split(':');
+                if (parts.length === 4) {
+                    return {
+                        host: parts[0],
+                        port: parseInt(parts[1]),
+                        auth: { username: parts[2], password: parts[3] },
+                        serverString: `${parts[0]}:${parts[1]}`
+                    };
+                }
             }
-        }
+        } catch (e) { return null; }
         return null;
     }
 
@@ -75,7 +67,7 @@ class ScraperEngine {
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
                 'Accept-Language': 'en-US,en;q=0.9' 
             },
-            timeout: 15000 // 15s timeout
+            timeout: 15000
         };
 
         if (proxyConfig) {
@@ -93,7 +85,7 @@ class ScraperEngine {
 
     // --- DYNAMIC ENGINE (Hybrid) ---
     async scrapeDynamic(url) {
-        console.log(`[🤖] Dynamic Mode | Environment: ${IS_VERCEL ? 'Vercel (Light)' : 'Render/Local (Full)'}`);
+        console.log(`[🤖] Dynamic Mode | Environment: ${IS_VERCEL ? 'Vercel' : 'Render/Local'}`);
         
         let browser;
         let page;
@@ -103,8 +95,6 @@ class ScraperEngine {
         if (IS_VERCEL) {
             const chromium = require('@sparticuz/chromium');
             const puppeteerCore = require('puppeteer-core');
-            
-            // Graphics mode false often helps with stability on serverless
             chromium.setGraphicsMode = false;
 
             const launchArgs = [
@@ -151,16 +141,12 @@ class ScraperEngine {
 
             await page.setUserAgent(userAgent);
             await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9' });
-
-            // Manual Evasion
             await page.evaluateOnNewDocument(() => {
                 Object.defineProperty(navigator, 'webdriver', { get: () => false });
             });
 
-            console.log(`[⏳] Navigating to ${url}...`);
-            // 'domcontentloaded' is faster than 'networkidle2' and less prone to timeout on heavy sites
+            // Fast but safe loading
             await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
-
             await this.randomSleep(2000, 4000);
 
             const content = await page.content();
@@ -176,17 +162,18 @@ class ScraperEngine {
 
 const engine = new ScraperEngine();
 
+// --- API ENDPOINT ---
 app.get('/api/scrape', async (req, res) => {
-    let { site, mode } = req.query;
+    let { site, mode, download } = req.query; // Added download param
 
     if (!site) return res.status(400).send('Error: Missing "site" parameter.');
     if (!/^https?:\/\//i.test(site)) site = 'https://' + site;
 
-    // Determine target URL for Base Tag injection
     const targetUrl = new URL(site);
     const baseUrl = `${targetUrl.protocol}//${targetUrl.host}`;
+    const domainName = targetUrl.hostname.replace('www.', '').split('.')[0];
+    const timestamp = new Date().getTime();
 
-    // Force dynamic for complex sites
     const useDynamic = mode === 'dynamic' || site.includes('siits.store');
 
     try {
@@ -202,42 +189,36 @@ app.get('/api/scrape', async (req, res) => {
             }
         }
 
-        // --- FIX VISUAL BUGS ---
         const $ = cheerio.load(htmlData);
         
-        // 1. Inject <base> tag so relative links (images, css) work
-        const hasBase = $('base').length > 0;
-        if (!hasBase) {
+        // Base tag injection for correct image loading
+        if ($('base').length === 0) {
             $('head').prepend(`<base href="${baseUrl}">`);
         }
 
-        // 2. Optional: Remove scripts that might redirect the page or cause alerts
-        $('script').each((i, el) => {
-            const src = $(el).attr('src');
-            // Remove analytics or heavy scripts, keep needed ones
-            if (src && (src.includes('analytics') || src.includes('tracker'))) {
-                $(el).remove();
-            }
-        });
+        const finalHtml = $.html();
 
+        // --- NEW: Download Logic ---
+        if (download) {
+            if (download === 'txt') {
+                res.setHeader('Content-Disposition', `attachment; filename="${domainName}_${timestamp}.txt"`);
+                res.setHeader('Content-Type', 'text/plain');
+                return res.send(finalHtml);
+            } 
+            else if (download === 'html') {
+                res.setHeader('Content-Disposition', `attachment; filename="${domainName}_${timestamp}.html"`);
+                res.setHeader('Content-Type', 'text/html');
+                return res.send(finalHtml);
+            }
+        }
+
+        // Default: Plain text for display
         res.setHeader('Content-Type', 'text/plain');
-        res.send($.html());
+        res.send(finalHtml);
 
     } catch (error) {
         console.error(`[❌] Error: ${error.message}`);
-        
-        // Return a clean error message to the UI
-        res.status(500).send(`
-            SCRAPE FAILED
-            ----------------
-            Target: ${site}
-            Error: ${error.message}
-            
-            Possible Reasons:
-            1. The site has strong anti-bot protection.
-            2. The Proxy (if used) is dead (407 Error).
-            3. The server timed out (Try again).
-        `);
+        res.status(500).send(`Scrape Failed: ${error.message}`);
     }
 });
 
