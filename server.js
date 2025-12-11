@@ -11,27 +11,45 @@ const PORT = process.env.PORT || 3000;
 app.use(express.static(path.join(__dirname, 'public')));
 
 // --- ENVIRONMENT DETECTION ---
-// Vercel usually has 'AWS_LAMBDA_FUNCTION_NAME' or 'VERCEL' env vars
 const IS_VERCEL = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME;
 
 class ScraperEngine {
     constructor() {
+        // ⚠️ CRITICAL FIX: The previous proxy caused the 407 Error.
+        // Left empty by default. Only add a proxy if you have a PAID, WORKING one.
         this.proxies = [
-            'proxy.geonode.io:9000:geonode_ClRGNNvaJ5-type-residential:efacdaf9-3e64-4f8a-9004-368c7a51ad74'
+            // 'http://user:pass@host:port' 
         ];
     }
 
     getProxyConfig() {
         if (this.proxies.length === 0) return null;
         const rawProxy = this.proxies[Math.floor(Math.random() * this.proxies.length)];
-        const parts = rawProxy.split(':');
-        if (parts.length === 4) {
-            return {
-                host: parts[0],
-                port: parseInt(parts[1]),
-                auth: { username: parts[2], password: parts[3] },
-                serverString: `${parts[0]}:${parts[1]}`
-            };
+        
+        // Handle standard format http://user:pass@host:port
+        // or the specific format you used before
+        if (rawProxy.includes('@')) {
+            // Standard URL format parsing
+            try {
+                const url = new URL(rawProxy);
+                return {
+                    host: url.hostname,
+                    port: parseInt(url.port),
+                    auth: { username: url.username, password: url.password },
+                    serverString: `${url.hostname}:${url.port}`
+                };
+            } catch (e) { return null; }
+        } else {
+            // Fallback for colon separated format
+            const parts = rawProxy.split(':');
+            if (parts.length === 4) {
+                return {
+                    host: parts[0],
+                    port: parseInt(parts[1]),
+                    auth: { username: parts[2], password: parts[3] },
+                    serverString: `${parts[0]}:${parts[1]}`
+                };
+            }
         }
         return null;
     }
@@ -52,8 +70,12 @@ class ScraperEngine {
         const proxyConfig = this.getProxyConfig();
 
         const options = {
-            headers: { 'User-Agent': userAgent },
-            timeout: 8000
+            headers: { 
+                'User-Agent': userAgent,
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9' 
+            },
+            timeout: 15000 // 15s timeout
         };
 
         if (proxyConfig) {
@@ -79,19 +101,18 @@ class ScraperEngine {
         const proxyConfig = this.getProxyConfig();
 
         if (IS_VERCEL) {
-            // === VERCEL MODE (Lightweight, Manual Stealth) ===
             const chromium = require('@sparticuz/chromium');
             const puppeteerCore = require('puppeteer-core');
-
-            // Use slightly older graphics mode for stability
-            chromium.setGraphicsMode = false; 
+            
+            // Graphics mode false often helps with stability on serverless
+            chromium.setGraphicsMode = false;
 
             const launchArgs = [
                 ...chromium.args,
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage',
-                '--disable-blink-features=AutomationControlled' // Essential manual stealth
+                '--disable-blink-features=AutomationControlled'
             ];
 
             if (proxyConfig) launchArgs.push(`--proxy-server=${proxyConfig.serverString}`);
@@ -105,7 +126,6 @@ class ScraperEngine {
             });
 
         } else {
-            // === RENDER / LOCAL MODE (Heavy, Full Plugin Support) ===
             const puppeteer = require('puppeteer-extra');
             const StealthPlugin = require('puppeteer-extra-plugin-stealth');
             puppeteer.use(StealthPlugin());
@@ -127,26 +147,21 @@ class ScraperEngine {
 
         try {
             page = await browser.newPage();
-
-            // Authenticate Proxy
             if (proxyConfig) await page.authenticate(proxyConfig.auth);
 
-            // === MANUAL STEALTH INJECTION (For Vercel & Extra Safety) ===
             await page.setUserAgent(userAgent);
             await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9' });
-            
-            // This hides the "I am a robot" flag manually
+
+            // Manual Evasion
             await page.evaluateOnNewDocument(() => {
                 Object.defineProperty(navigator, 'webdriver', { get: () => false });
             });
-            // ============================================================
 
             console.log(`[⏳] Navigating to ${url}...`);
-            // Increased timeout for safety
-            await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
+            // 'domcontentloaded' is faster than 'networkidle2' and less prone to timeout on heavy sites
+            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
 
-            // Human delay
-            await this.randomSleep(1500, 3500);
+            await this.randomSleep(2000, 4000);
 
             const content = await page.content();
             await browser.close();
@@ -167,7 +182,11 @@ app.get('/api/scrape', async (req, res) => {
     if (!site) return res.status(400).send('Error: Missing "site" parameter.');
     if (!/^https?:\/\//i.test(site)) site = 'https://' + site;
 
-    // Force dynamic for your specific target
+    // Determine target URL for Base Tag injection
+    const targetUrl = new URL(site);
+    const baseUrl = `${targetUrl.protocol}//${targetUrl.host}`;
+
+    // Force dynamic for complex sites
     const useDynamic = mode === 'dynamic' || site.includes('siits.store');
 
     try {
@@ -178,25 +197,53 @@ app.get('/api/scrape', async (req, res) => {
             try {
                 htmlData = await engine.scrapeStatic(site);
             } catch (e) {
-                console.log(`[⚠️] Static failed (${e.message}), switching to Dynamic...`);
+                console.log(`[⚠️] Static failed, switching to Dynamic...`);
                 htmlData = await engine.scrapeDynamic(site);
             }
         }
 
+        // --- FIX VISUAL BUGS ---
         const $ = cheerio.load(htmlData);
+        
+        // 1. Inject <base> tag so relative links (images, css) work
+        const hasBase = $('base').length > 0;
+        if (!hasBase) {
+            $('head').prepend(`<base href="${baseUrl}">`);
+        }
+
+        // 2. Optional: Remove scripts that might redirect the page or cause alerts
+        $('script').each((i, el) => {
+            const src = $(el).attr('src');
+            // Remove analytics or heavy scripts, keep needed ones
+            if (src && (src.includes('analytics') || src.includes('tracker'))) {
+                $(el).remove();
+            }
+        });
+
         res.setHeader('Content-Type', 'text/plain');
         res.send($.html());
 
     } catch (error) {
         console.error(`[❌] Error: ${error.message}`);
-        res.status(500).send(`Scrape Failed: ${error.message}`);
+        
+        // Return a clean error message to the UI
+        res.status(500).send(`
+            SCRAPE FAILED
+            ----------------
+            Target: ${site}
+            Error: ${error.message}
+            
+            Possible Reasons:
+            1. The site has strong anti-bot protection.
+            2. The Proxy (if used) is dead (407 Error).
+            3. The server timed out (Try again).
+        `);
     }
 });
 
 if (require.main === module) {
     app.listen(PORT, () => {
         console.log(`⚡ Scraper running on http://localhost:${PORT}`);
-        console.log(`📝 Environment: ${IS_VERCEL ? 'Vercel Mode' : 'Standard Mode'}`);
     });
 }
 
