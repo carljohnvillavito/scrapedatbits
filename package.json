@@ -1,15 +1,20 @@
 {
   "name": "scrapedatbits",
-  "version": "2.1.0",
-  "description": "Vercel-Ready Scraper",
+  "version": "3.0.0",
+  "description": "Hybrid Scraper for Vercel & Render",
   "main": "server.js",
+  "engines": {
+    "node": "18.x"
+  },
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "postinstall": "npx puppeteer browsers install chrome"
   },
   "dependencies": {
     "axios": "^1.7.0",
     "cheerio": "^1.0.0-rc.12",
     "express": "^4.19.0",
+    "puppeteer": "^22.6.0",
     "puppeteer-core": "^22.6.0",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
