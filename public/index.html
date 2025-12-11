@@ -211,6 +211,35 @@
 
     </main>
 
+    <!-- DONATION FOOTER -->
+    <footer class="w-full py-10 mt-auto border-t border-white/5 bg-[#080808] relative">
+        <div class="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-500/20 to-transparent"></div>
+        <div class="max-w-xl mx-auto px-4 flex flex-col items-center text-center gap-5">
+            <div>
+                <h3 class="text-white font-bold text-lg mb-1">Fuel the Project</h3>
+                <p class="text-gray-500 text-xs">Servers aren't free, but your support keeps them running.</p>
+            </div>
+            
+            <a href="https://sociabuzz.com/carljohnvillavito" target="_blank" 
+               class="group relative flex items-center gap-3 px-6 py-3 bg-[#0f1115] rounded-full border border-yellow-500/20 hover:border-yellow-500/50 transition-all duration-300 hover:scale-105 hover:shadow-[0_0_20px_rgba(234,179,8,0.2)]">
+                
+                <!-- SociaBuzz Logo / Icon Representation -->
+                <div class="w-8 h-8 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center text-black shadow-lg">
+                    <i data-lucide="heart" class="w-4 h-4 fill-black"></i>
+                </div>
+                
+                <div class="flex flex-col items-start">
+                    <span class="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Donate via</span>
+                    <span class="text-sm font-bold text-white group-hover:text-yellow-400 transition-colors">SociaBuzz</span>
+                </div>
+
+                <i data-lucide="external-link" class="w-4 h-4 text-gray-600 group-hover:text-white transition-colors ml-2"></i>
+            </a>
+
+            <p class="text-[10px] text-gray-700 font-mono mt-4">© 2025 ScrapeDatBits. All systems operational.</p>
+        </div>
+    </footer>
+
     <!-- JS Logic -->
     <script>
         lucide.createIcons();
@@ -263,7 +292,7 @@
             }
         }
 
-        // --- NEW: Direct Download Function ---
+        // --- Direct Download Function ---
         function downloadDirect(format) {
             if(!currentUrl) return;
             // Create a temporary link to trigger the API download
