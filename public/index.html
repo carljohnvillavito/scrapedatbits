@@ -26,13 +26,26 @@
             font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
         }
         
-        /* Search Highlight Style */
+        /* High Visibility Highlight */
         .search-highlight {
-            background-color: rgba(234, 179, 8, 0.4); /* Yellow-500 with opacity */
-            color: #fef08a; /* Yellow-200 */
+            background-color: #eab308; /* Yellow-500 */
+            color: #000; /* Black text for contrast */
             border-radius: 2px;
-            box-shadow: 0 0 0 1px rgba(234, 179, 8, 0.6);
+            box-shadow: 0 0 10px rgba(234, 179, 8, 0.5);
             font-weight: bold;
+            padding: 0 2px;
+        }
+
+        /* Focus Animation for the specific found word */
+        .search-highlight.focus-target {
+            animation: pulse-ring 2s infinite;
+            border: 1px solid white;
+        }
+
+        @keyframes pulse-ring {
+            0% { box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(234, 179, 8, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(234, 179, 8, 0); }
         }
 
         /* Tab Transitions */
@@ -127,10 +140,13 @@
                     <!-- SMART SEARCH ENGINE TOGGLE -->
                     <div class="relative flex items-center">
                         <div class="relative flex items-center bg-white/5 rounded-md border border-white/5 hover:border-white/20 transition-colors focus-within:border-cyan-500/50 focus-within:bg-[#0f1115]">
-                            <i data-lucide="search" class="w-3 h-3 text-gray-500 ml-2"></i>
-                            <input type="text" id="searchInput" placeholder="Find in code..." 
-                                class="bg-transparent border-none outline-none text-[10px] text-gray-300 w-24 sm:w-40 px-2 py-1.5 placeholder-gray-600 font-mono"
-                                onkeyup="performSmartSearch()">
+                            <!-- Icon changes based on state -->
+                            <div id="searchIconContainer" class="ml-2">
+                                <i data-lucide="search" class="w-3 h-3 text-gray-500"></i>
+                            </div>
+                            <input type="text" id="searchInput" placeholder="Search (e.g. div class)" 
+                                class="bg-transparent border-none outline-none text-[10px] text-gray-300 w-32 sm:w-48 px-2 py-1.5 placeholder-gray-600 font-mono"
+                                onkeyup="initiateSearch()">
                             <button onclick="clearSearch()" id="clearSearchBtn" class="hidden p-1 hover:text-white text-gray-500 mr-1">
                                 <i data-lucide="x" class="w-3 h-3"></i>
                             </button>
@@ -139,7 +155,7 @@
                 </div>
 
                 <!-- Code Container (Replaces Textarea) -->
-                <div id="outputContainer" class="flex-1 bg-transparent p-4 overflow-auto relative font-mono text-xs md:text-sm text-gray-300 leading-relaxed whitespace-pre">
+                <div id="outputContainer" class="flex-1 bg-transparent p-4 overflow-auto relative font-mono text-xs md:text-sm text-gray-300 leading-relaxed whitespace-pre scroll-smooth">
                     <code id="outputCode" class="block"></code>
                 </div>
                 
@@ -274,9 +290,9 @@
     <script>
         lucide.createIcons();
         let currentUrl = "";
-        let globalRawData = ""; // Stores valid HTML content for searching
+        let globalRawData = ""; 
+        let searchTimeout = null; // Variable for debounce
 
-        // Tab Switching
         function switchTab(tabName) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
@@ -287,7 +303,7 @@
         async function scrapeSite() {
             const urlInput = document.getElementById('urlInput');
             const outputCode = document.getElementById('outputCode');
-            const rawStore = document.getElementById('rawOutputStore'); // Hidden store
+            const rawStore = document.getElementById('rawOutputStore'); 
             const toolbar = document.getElementById('toolbar');
             const status = document.getElementById('statusText');
             const loading = document.getElementById('loadingOverlay');
@@ -295,7 +311,6 @@
             currentUrl = urlInput.value;
             if (!currentUrl) { urlInput.focus(); return; }
 
-            // UI State: Loading
             loading.style.display = 'flex';
             toolbar.style.opacity = '0.5';
             
@@ -304,10 +319,8 @@
                 const data = await response.text();
 
                 if (response.ok) {
-                    globalRawData = data; // Save for search functionality
-                    rawStore.value = data; // Save for copy functionality
-                    
-                    // Initial Render (Escaped HTML to show as code)
+                    globalRawData = data; 
+                    rawStore.value = data; 
                     outputCode.innerHTML = escapeHtml(data);
 
                     status.innerText = `Success (${formatBytes(new TextEncoder().encode(data).length)})`;
@@ -328,43 +341,90 @@
             }
         }
 
-        // --- SMART SEARCH ENGINE ---
+        // --- SMART SEARCH ENGINE v2 (Debounced + Tokenized + Auto-Scroll) ---
+        
+        function initiateSearch() {
+            const iconContainer = document.getElementById('searchIconContainer');
+            const clearBtn = document.getElementById('clearSearchBtn');
+            const inputVal = document.getElementById('searchInput').value;
+
+            // Show loading icon
+            iconContainer.innerHTML = `<i data-lucide="loader-2" class="w-3 h-3 text-cyan-400 animate-spin"></i>`;
+            lucide.createIcons();
+            
+            // Show clear button if text exists
+            clearBtn.classList.toggle('hidden', inputVal.length === 0);
+
+            // Clear previous timer
+            if (searchTimeout) clearTimeout(searchTimeout);
+
+            // Set new timer for 1 second (1000ms)
+            searchTimeout = setTimeout(() => {
+                performSmartSearch();
+                // Reset Icon
+                iconContainer.innerHTML = `<i data-lucide="search" class="w-3 h-3 text-gray-500"></i>`;
+                lucide.createIcons();
+            }, 1000);
+        }
+
         function performSmartSearch() {
             const term = document.getElementById('searchInput').value;
             const outputCode = document.getElementById('outputCode');
-            const clearBtn = document.getElementById('clearSearchBtn');
-
-            // Show/Hide Clear Button
-            clearBtn.classList.toggle('hidden', term.length === 0);
 
             if (!globalRawData) return;
 
-            // If empty, reset to plain escaped HTML
-            if (term.length === 0) {
+            // Reset
+            if (!term || term.trim() === "") {
                 outputCode.innerHTML = escapeHtml(globalRawData);
                 return;
             }
 
-            // Escape the HTML first so we work with the "visible" code
+            // 1. Escape the full HTML (Display View)
             const safeText = escapeHtml(globalRawData);
 
-            // Create Regex for case-insensitive search
-            // We escape the search term to prevent regex errors if user types special chars like . or *
-            const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const regex = new RegExp(`(${escapedTerm})`, 'gi');
+            // 2. Tokenize Input (Split by spaces, ignore empty)
+            // Example: "div class" -> ["div", "class"]
+            const tokens = term.trim().split(/\s+/).filter(t => t.length > 0);
 
-            // Replace matched text with highlighted span
-            // We use $1 to preserve the original casing of the match
-            const highlightedHtml = safeText.replace(regex, '<span class="search-highlight">$1</span>');
+            if (tokens.length === 0) return;
 
+            // 3. Build Regex
+            // Escape special regex chars in user input tokens (e.g. ., *, +)
+            const escapedTokens = tokens.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+            
+            // Join with OR (|) -> /(div|class)/gi
+            const pattern = `(${escapedTokens.join('|')})`;
+            const regex = new RegExp(pattern, 'gi');
+
+            // 4. Highlight
+            // We match tokens and wrap them. We add 'focus-target' class to allow CSS animations
+            let matchCount = 0;
+            const highlightedHtml = safeText.replace(regex, (match) => {
+                matchCount++;
+                // Add an ID to the first match to scroll to it
+                const idAttr = matchCount === 1 ? 'id="first-match"' : '';
+                return `<span class="search-highlight ${matchCount === 1 ? 'focus-target' : ''}" ${idAttr}>${match}</span>`;
+            });
+
+            // 5. Render
             outputCode.innerHTML = highlightedHtml;
+
+            // 6. Direct User (Auto Scroll)
+            const firstMatch = document.getElementById('first-match');
+            if (firstMatch) {
+                firstMatch.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center',
+                    inline: 'center'
+                });
+            }
         }
 
         function clearSearch() {
             const input = document.getElementById('searchInput');
             input.value = '';
             input.focus();
-            performSmartSearch();
+            initiateSearch(); // Triggers reset
         }
 
         // --- Utilities ---
@@ -389,7 +449,6 @@
         }
 
         function copyToClipboard() {
-            // Copy from the hidden textarea which holds the raw data
             const content = document.getElementById('rawOutputStore');
             content.select();
             document.execCommand('copy');
