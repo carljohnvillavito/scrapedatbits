@@ -3,199 +3,301 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ScrapeDatBits</title>
-    <!-- Tailwind CSS -->
+    <title>ScrapeDatBits | Dev Tools</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        /* Custom Scrollbar */
-        textarea::-webkit-scrollbar { width: 6px; height: 6px; }
-        textarea::-webkit-scrollbar-track { background: transparent; }
-        textarea::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 3px; }
-        textarea::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+        /* Modern Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0f1115; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
         
         .glass-panel {
-            background: rgba(17, 24, 39, 0.85);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+            background: rgba(17, 24, 39, 0.7);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
+        }
+
+        .code-block {
+            background: #0f1115;
+            border: 1px solid #1f2937;
+            font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
         }
         
-        body { overscroll-behavior-y: none; }
+        /* Tab Transitions */
+        .tab-content { display: none; opacity: 0; transition: opacity 0.3s ease; }
+        .tab-content.active { display: flex; opacity: 1; }
+        
+        .nav-btn.active {
+            background: rgba(34, 211, 238, 0.1);
+            color: #22d3ee;
+            border-color: rgba(34, 211, 238, 0.4);
+        }
     </style>
 </head>
-<body class="bg-[#050505] text-gray-200 min-h-screen flex flex-col font-sans selection:bg-cyan-500/30 selection:text-cyan-200">
+<body class="bg-[#050505] text-gray-300 min-h-screen flex flex-col font-sans selection:bg-cyan-500/30 selection:text-cyan-200">
 
-    <!-- Header -->
-    <header class="pt-8 pb-4 text-center px-4">
-        <h1 class="text-3xl md:text-5xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-cyan-400 to-teal-400 mb-2 drop-shadow-lg">
-            ScrapeDatBits
-        </h1>
-        <p class="text-gray-500 text-xs md:text-sm uppercase tracking-[0.2em] font-medium">Minimalist URL Scraper</p>
-    </header>
-
-    <!-- Main Content -->
-    <main class="flex-1 flex flex-col items-center w-full max-w-6xl mx-auto px-4 pb-4">
-        
-        <!-- Input Section -->
-        <div class="w-full max-w-3xl relative group mb-4">
-            <!-- Glow Effect (Z-Index 0) -->
-            <div class="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 to-cyan-500 rounded-lg blur opacity-20 group-hover:opacity-60 transition duration-300 z-0"></div>
+    <!-- Navbar -->
+    <nav class="w-full border-b border-white/5 bg-[#0a0a0a]/80 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <div class="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.5)]"></div>
+                <h1 class="text-xl font-bold tracking-tight text-white">ScrapeDatBits</h1>
+            </div>
             
-            <!-- Actual Content (Z-Index 20 - Forces it to be clickable) -->
-            <div class="relative z-20 flex flex-col sm:flex-row items-stretch sm:items-center bg-gray-900 rounded-lg border border-gray-800 shadow-xl overflow-hidden">
-                <input type="text" id="urlInput" placeholder="https://example.com" 
-                    class="w-full bg-transparent border-none outline-none text-white px-5 py-4 placeholder-gray-600 text-sm md:text-base font-mono z-20"
-                    onkeydown="if(event.key === 'Enter') scrapeSite()">
+            <div class="flex gap-2">
+                <button onclick="switchTab('scraper')" id="btn-scraper" class="nav-btn active flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-md border border-transparent hover:border-white/10 transition">
+                    <i data-lucide="terminal-square" class="w-4 h-4"></i> Tool
+                </button>
+                <button onclick="switchTab('docs')" id="btn-docs" class="nav-btn flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-md border border-transparent hover:border-white/10 transition">
+                    <i data-lucide="book-open" class="w-4 h-4"></i> Docs
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- MAIN CONTENT CONTAINER -->
+    <main class="flex-1 w-full max-w-6xl mx-auto px-4 py-8 relative">
+
+        <!-- ==================== TAB 1: SCRAPER TOOL ==================== -->
+        <div id="tab-scraper" class="tab-content active flex-col items-center w-full">
+            
+            <!-- Hero Text -->
+            <div class="text-center mb-8">
+                <h2 class="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-cyan-400 to-emerald-400 drop-shadow-2xl">
+                    Extract The Web.
+                </h2>
+                <p class="mt-2 text-gray-500 text-sm font-mono">Serverless • Stealth • Multi-Format</p>
+            </div>
+
+            <!-- Input Bar -->
+            <div class="w-full max-w-3xl relative group mb-6 z-10">
+                <div class="absolute -inset-0.5 bg-gradient-to-r from-cyan-500 to-indigo-500 rounded-lg blur opacity-20 group-hover:opacity-50 transition duration-500"></div>
+                <div class="relative flex flex-col sm:flex-row bg-[#0f1115] rounded-lg border border-white/10 shadow-2xl overflow-hidden">
+                    <input type="text" id="urlInput" placeholder="https://example.com" 
+                        class="w-full bg-transparent border-none outline-none text-white px-5 py-4 font-mono text-sm placeholder-gray-600"
+                        onkeydown="if(event.key === 'Enter') scrapeSite()">
+                    <button onclick="scrapeSite()" class="px-8 py-4 sm:py-0 bg-white/5 hover:bg-white/10 text-cyan-400 font-bold uppercase text-xs tracking-widest border-t sm:border-t-0 sm:border-l border-white/10 transition active:bg-cyan-500/10">
+                        Execute
+                    </button>
+                </div>
+            </div>
+
+            <!-- Toolbar -->
+            <div id="toolbar" class="w-full max-w-3xl flex justify-between items-center mb-4 opacity-50 transition-opacity pointer-events-none">
+                <span id="statusText" class="text-xs font-mono text-gray-500">Ready for input</span>
+                <div class="flex gap-2 pointer-events-auto">
+                    <button onclick="copyToClipboard()" class="p-2 bg-[#0f1115] border border-white/10 rounded hover:border-cyan-500/50 hover:text-cyan-400 transition" title="Copy to Clipboard">
+                        <i data-lucide="copy" class="w-4 h-4"></i>
+                    </button>
+                    <!-- Direct Download Links via API -->
+                    <button onclick="downloadDirect('html')" class="flex items-center gap-2 px-3 py-1.5 text-xs font-mono bg-[#0f1115] border border-white/10 rounded hover:border-cyan-500/50 hover:text-cyan-400 transition">
+                        <i data-lucide="download" class="w-3 h-3"></i> .HTML
+                    </button>
+                    <button onclick="downloadDirect('txt')" class="flex items-center gap-2 px-3 py-1.5 text-xs font-mono bg-[#0f1115] border border-white/10 rounded hover:border-cyan-500/50 hover:text-cyan-400 transition">
+                        <i data-lucide="file-text" class="w-3 h-3"></i> .TXT
+                    </button>
+                </div>
+            </div>
+
+            <!-- Editor Window -->
+            <div class="w-full h-[60vh] glass-panel rounded-xl flex flex-col overflow-hidden relative group">
+                <div class="h-10 bg-[#0a0a0a] border-b border-white/5 flex items-center px-4 justify-between shrink-0">
+                    <div class="flex gap-2">
+                        <div class="w-2.5 h-2.5 rounded-full bg-red-500/50"></div>
+                        <div class="w-2.5 h-2.5 rounded-full bg-yellow-500/50"></div>
+                        <div class="w-2.5 h-2.5 rounded-full bg-green-500/50"></div>
+                    </div>
+                    <span id="windowTitle" class="text-[10px] uppercase tracking-widest text-gray-600 font-mono">source_view</span>
+                </div>
+                <textarea id="outputArea" readonly spellcheck="false" 
+                    class="flex-1 bg-transparent p-4 font-mono text-xs md:text-sm text-gray-300 outline-none resize-none leading-relaxed"></textarea>
                 
-                <button onclick="scrapeSite()" type="button"
-                    class="z-20 cursor-pointer sm:w-auto w-full px-8 py-4 sm:py-0 bg-gray-800 hover:bg-gray-700 active:bg-gray-600 active:scale-95 text-cyan-400 hover:text-cyan-300 transition-all duration-100 font-bold uppercase tracking-wider text-xs border-t sm:border-t-0 sm:border-l border-gray-700">
-                    Scrape
-                </button>
+                <!-- Loading Overlay -->
+                <div id="loadingOverlay" class="absolute inset-0 bg-[#050505]/80 backdrop-blur-sm z-20 hidden flex-col items-center justify-center">
+                    <div class="w-12 h-12 border-2 border-cyan-500/20 border-t-cyan-400 rounded-full animate-spin mb-4"></div>
+                    <p class="text-cyan-400 font-mono text-xs animate-pulse">CONNECTING TO PROXY MESH...</p>
+                </div>
             </div>
         </div>
 
-        <!-- Toolbar -->
-        <div id="toolbar" class="w-full max-w-3xl flex flex-wrap justify-between items-center gap-2 mb-3 opacity-0 transition-opacity duration-300 pointer-events-none">
-            <span class="text-[10px] md:text-xs text-gray-500 font-mono" id="statusText">Waiting for input...</span>
-            <div class="flex gap-2 pointer-events-auto">
-                <button onclick="copyToClipboard()" class="flex items-center gap-1.5 px-3 py-1.5 text-[10px] md:text-xs font-medium bg-gray-800/80 hover:bg-gray-700 text-gray-300 rounded border border-gray-700 transition">
-                    <i data-lucide="copy" class="w-3 h-3"></i> Copy
-                </button>
-                <button onclick="downloadFile('html')" class="flex items-center gap-1.5 px-3 py-1.5 text-[10px] md:text-xs font-medium bg-gray-800/80 hover:bg-gray-700 text-gray-300 rounded border border-gray-700 transition">
-                    <i data-lucide="file-code" class="w-3 h-3"></i> .HTML
-                </button>
-                <button onclick="downloadFile('txt')" class="flex items-center gap-1.5 px-3 py-1.5 text-[10px] md:text-xs font-medium bg-gray-800/80 hover:bg-gray-700 text-gray-300 rounded border border-gray-700 transition">
-                    <i data-lucide="file-text" class="w-3 h-3"></i> .TXT
-                </button>
-            </div>
-        </div>
-
-        <!-- Output View -->
-        <div class="w-full h-[60vh] md:h-[70vh] relative rounded-xl overflow-hidden glass-panel flex flex-col shadow-2xl ring-1 ring-white/5">
-            <!-- Window Title Bar -->
-            <div class="absolute top-0 left-0 w-full h-10 bg-[#0f1115] border-b border-white/5 flex items-center px-4 gap-2 z-20 shrink-0 select-none">
-                <div class="flex gap-1.5">
-                    <div class="w-2.5 h-2.5 rounded-full bg-red-500/80 hover:bg-red-500 transition"></div>
-                    <div class="w-2.5 h-2.5 rounded-full bg-yellow-500/80 hover:bg-yellow-500 transition"></div>
-                    <div class="w-2.5 h-2.5 rounded-full bg-green-500/80 hover:bg-green-500 transition"></div>
-                </div>
-                <div class="ml-4 text-[10px] text-gray-600 font-mono uppercase tracking-widest truncate" id="windowTitle">
-                    view_source.html
-                </div>
+        <!-- ==================== TAB 2: DOCUMENTATION ==================== -->
+        <div id="tab-docs" class="tab-content flex-col w-full max-w-4xl mx-auto">
+            
+            <div class="mb-10">
+                <h2 class="text-3xl font-bold text-white mb-4">API Reference</h2>
+                <p class="text-gray-400 leading-relaxed">
+                    ScrapeDatBits provides a powerful REST API to extract HTML content from any public URL. 
+                    It handles proxy rotation, user-agent spoofing, and dynamic rendering (Puppeteer) automatically.
+                </p>
             </div>
 
-            <!-- The Content Area -->
-            <textarea id="outputArea" readonly spellcheck="false"
-                class="w-full h-full bg-transparent text-xs md:text-sm font-mono text-gray-300 p-4 pt-14 outline-none resize-none leading-relaxed whitespace-pre shadow-inner"></textarea>
+            <!-- Endpoint -->
+            <div class="glass-panel rounded-xl p-6 mb-8">
+                <div class="flex items-center gap-3 mb-4">
+                    <span class="bg-cyan-500/10 text-cyan-400 px-2 py-1 rounded text-xs font-bold border border-cyan-500/20">GET</span>
+                    <code class="text-sm font-mono text-white">/api/scrape</code>
+                </div>
+                <p class="text-sm text-gray-400 mb-4">The primary endpoint to fetch site data.</p>
+                
+                <!-- Params Table -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="text-gray-500 border-b border-white/10">
+                            <tr>
+                                <th class="pb-3 font-normal uppercase tracking-wider text-xs">Parameter</th>
+                                <th class="pb-3 font-normal uppercase tracking-wider text-xs">Type</th>
+                                <th class="pb-3 font-normal uppercase tracking-wider text-xs">Required</th>
+                                <th class="pb-3 font-normal uppercase tracking-wider text-xs">Description</th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-gray-300 font-mono text-xs">
+                            <tr class="border-b border-white/5">
+                                <td class="py-3 text-cyan-400">site</td>
+                                <td class="py-3">string</td>
+                                <td class="py-3 text-emerald-400">Yes</td>
+                                <td class="py-3 text-gray-400">The target URL (e.g. facebook.com)</td>
+                            </tr>
+                            <tr class="border-b border-white/5">
+                                <td class="py-3 text-cyan-400">mode</td>
+                                <td class="py-3">string</td>
+                                <td class="py-3 text-gray-600">No</td>
+                                <td class="py-3 text-gray-400">Set to <span class="text-yellow-400">dynamic</span> to force Puppeteer (slower, better for SPAs).</td>
+                            </tr>
+                            <tr>
+                                <td class="py-3 text-cyan-400">download</td>
+                                <td class="py-3">string</td>
+                                <td class="py-3 text-gray-600">No</td>
+                                <td class="py-3 text-gray-400">
+                                    Set to <span class="text-yellow-400">html</span> or <span class="text-yellow-400">txt</span> to trigger a file download.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Example Usage -->
+            <div class="mb-8">
+                <h3 class="text-lg font-bold text-white mb-3">Example Request</h3>
+                <div class="code-block rounded-lg p-4 overflow-x-auto relative group">
+                    <button onclick="copyCode(this)" class="absolute top-2 right-2 p-1.5 bg-white/5 rounded hover:bg-white/10 transition opacity-0 group-hover:opacity-100">
+                        <i data-lucide="copy" class="w-3 h-3 text-gray-400"></i>
+                    </button>
+                    <pre class="text-sm text-green-400">http://localhost:3000/api/scrape?site=example.com&download=html</pre>
+                </div>
+            </div>
+
+            <!-- Example Response -->
+            <div class="mb-8">
+                <h3 class="text-lg font-bold text-white mb-3">Response</h3>
+                <p class="text-sm text-gray-400 mb-2">Returns raw HTML string or a file attachment.</p>
+                <div class="code-block rounded-lg p-4 overflow-x-auto">
+<pre class="text-xs text-gray-300 leading-relaxed">
+<span class="text-blue-400">&lt;!DOCTYPE html&gt;</span>
+<span class="text-blue-400">&lt;html&gt;</span>
+  <span class="text-blue-400">&lt;head&gt;</span>
+    <span class="text-blue-400">&lt;title&gt;</span>Example Domain<span class="text-blue-400">&lt;/title&gt;</span>
+  <span class="text-blue-400">&lt;/head&gt;</span>
+  <span class="text-blue-400">&lt;body&gt;</span>
+    ...
+</pre>
+                </div>
+            </div>
+
         </div>
 
     </main>
 
-    <!-- Logic -->
+    <!-- JS Logic -->
     <script>
-        // --- 1. Define Functions First (Safest Way) ---
+        lucide.createIcons();
+        let currentUrl = "";
+
+        // Tab Switching Logic
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+            
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+            document.getElementById(`btn-${tabName}`).classList.add('active');
+        }
 
         async function scrapeSite() {
             const urlInput = document.getElementById('urlInput');
-            const url = urlInput.value;
             const output = document.getElementById('outputArea');
             const toolbar = document.getElementById('toolbar');
             const status = document.getElementById('statusText');
-            const winTitle = document.getElementById('windowTitle');
+            const loading = document.getElementById('loadingOverlay');
+            
+            currentUrl = urlInput.value;
+            if (!currentUrl) { urlInput.focus(); return; }
 
-            if (!url) {
-                urlInput.focus();
-                return;
-            }
-
-            // Reset UI
-            output.value = "";
-            output.placeholder = "Initializing handshake...\nEstablishing secure connection...\nFetching packets...";
-            status.innerText = "Requesting data...";
-            status.className = "text-[10px] md:text-xs text-yellow-500 font-mono animate-pulse";
-            toolbar.classList.remove('opacity-0', 'pointer-events-none');
-            // Re-enable pointer events for buttons inside toolbar
-            const toolbarButtons = toolbar.querySelector('div');
-            if(toolbarButtons) toolbarButtons.classList.add('pointer-events-auto');
-
-            winTitle.innerText = `Scraping: ${url.replace('https://', '').substring(0, 30)}...`;
-
+            // UI State: Loading
+            loading.style.display = 'flex';
+            toolbar.style.opacity = '0.5';
+            
             try {
-                const response = await fetch(`/api/scrape?site=${encodeURIComponent(url)}`);
+                // Fetch for View only (no download param)
+                const response = await fetch(`/api/scrape?site=${encodeURIComponent(currentUrl)}`);
                 const data = await response.text();
 
                 if (response.ok) {
                     output.value = data;
-                    output.placeholder = ""; 
-                    const size = new TextEncoder().encode(data).length;
-                    status.innerText = `Success (200 OK) • ${formatBytes(size)}`;
-                    status.className = "text-[10px] md:text-xs text-emerald-400 font-mono";
-                    winTitle.innerText = `source_${new Date().getTime()}.html`;
+                    status.innerText = `Success (${formatBytes(new TextEncoder().encode(data).length)})`;
+                    status.className = "text-xs font-mono text-emerald-400";
+                    toolbar.style.opacity = '1';
+                    toolbar.style.pointerEvents = 'auto';
                 } else {
-                    output.value = `/* ERROR LOG */\n\n${data}`;
-                    status.innerText = "Connection Failed";
-                    status.className = "text-[10px] md:text-xs text-red-500 font-mono";
+                    output.value = data; // Show error log
+                    status.innerText = "Request Failed";
+                    status.className = "text-xs font-mono text-red-500";
                 }
             } catch (err) {
-                console.error(err);
-                output.value = `/* SYSTEM FAILURE */\n\nCould not reach the server API.\nCheck your internet connection.`;
-                status.innerText = "Network Error";
-                status.className = "text-[10px] md:text-xs text-red-500 font-mono";
+                output.value = "Network Error: Server unreachable.";
+                status.innerText = "Error";
+            } finally {
+                loading.style.display = 'none';
             }
         }
 
-        function formatBytes(bytes, decimals = 2) {
-            if (!+bytes) return '0 Bytes';
-            const k = 1024;
-            const dm = decimals < 0 ? 0 : decimals;
-            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+        // --- NEW: Direct Download Function ---
+        function downloadDirect(format) {
+            if(!currentUrl) return;
+            // Create a temporary link to trigger the API download
+            const link = document.createElement('a');
+            link.href = `/api/scrape?site=${encodeURIComponent(currentUrl)}&download=${format}`;
+            link.target = '_blank'; // Opens in new tab to handle download
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
 
         function copyToClipboard() {
             const content = document.getElementById('outputArea');
             content.select();
-            content.setSelectionRange(0, 99999);
             document.execCommand('copy');
-            
             const status = document.getElementById('statusText');
-            const prevText = status.innerText;
-            const prevClass = status.className;
-            
-            status.innerText = "Copied to clipboard!";
-            status.className = "text-[10px] md:text-xs text-indigo-400 font-mono font-bold";
-            
-            setTimeout(() => {
-                status.innerText = prevText;
-                status.className = prevClass;
-            }, 2000);
+            const original = status.innerText;
+            status.innerText = "Copied!";
+            setTimeout(() => status.innerText = original, 1500);
         }
 
-        function downloadFile(type) {
-            const content = document.getElementById('outputArea').value;
-            if(!content) return;
-            const blob = new Blob([content], { type: type === 'html' ? 'text/html' : 'text/plain' });
-            const anchor = document.createElement('a');
-            anchor.href = URL.createObjectURL(blob);
-            anchor.download = `scraped_${new Date().getTime()}.${type}`;
-            document.body.appendChild(anchor);
-            anchor.click();
-            document.body.removeChild(anchor);
+        function copyCode(btn) {
+            const code = btn.nextElementSibling.innerText;
+            navigator.clipboard.writeText(code);
+            // Visual feedback could be added here
         }
 
-        // --- 2. Initialize Icons Last (Prevents blocking) ---
-        document.addEventListener('DOMContentLoaded', () => {
-            try {
-                if (typeof lucide !== 'undefined') {
-                    lucide.createIcons();
-                }
-            } catch (e) {
-                console.log('Icons failed to load, functionality remains.');
-            }
-        });
+        function formatBytes(bytes, decimals = 2) {
+            if (!+bytes) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return `${parseFloat((bytes / Math.pow(k, i)).toFixed(decimals))} ${sizes[i]}`;
+        }
     </script>
 </body>
 </html>
